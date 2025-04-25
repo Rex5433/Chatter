@@ -1,37 +1,35 @@
 <?php
 session_start();
-require 'db_connect.php';
+require_once 'db_connect.php'; 
 
-$loginError = '';
-$logoutMessage = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $input = trim($_POST["username"]);
-    $password = $_POST["password"];
-
-    $stmt = $conn->prepare("SELECT id, username, password, email, created_at FROM users WHERE username = ? OR email = ?");
-    $stmt->bind_param("ss", $input, $input);
+    $stmt = $conn->prepare("SELECT id, password, is_admin FROM users WHERE username = ?");
+    $stmt->bind_param("s", $username);
     $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt->store_result();
 
-    if ($result && $result->num_rows === 1) {
-        $user = $result->fetch_assoc();
-        if (password_verify($password, $user["password"])) {
-            session_regenerate_id(true);
-            $_SESSION["user_id"] = $user["id"];
-            $_SESSION["username"] = $user["username"];
-            $_SESSION["email"] = $user["email"];
-            $_SESSION["created_at"] = $user["created_at"];
-            header("Location: feed.php");
+    if ($stmt->num_rows === 1) {
+        $stmt->bind_result($user_id, $hashed_password, $is_admin);
+        $stmt->fetch();
+
+        if (password_verify($password, $hashed_password)) {
+            $_SESSION['user_id'] = $user_id;
+            $_SESSION['username'] = $username; 
+            $_SESSION['is_admin'] = $is_admin;
+
+            header("Location: " . ($is_admin ? "admin.php" : "feed.php"));
             exit();
+        } else {
+            $error = "Invalid password.";
         }
+    } else {
+        $error = "User not found.";
     }
 
-    $loginError = "Invalid username or password. Please try again.";
-}
-
-if (isset($_GET['loggedout'])) {
-    $logoutMessage = "You have been logged out successfully.";
+    $stmt->close();
 }
 ?>
 
@@ -40,25 +38,106 @@ if (isset($_GET['loggedout'])) {
 <head>
     <meta charset="UTF-8">
     <title>Chatter | Login</title>
-    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #0e1836;
+            color: #FAFDFF;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+
+        .register-container {
+            background-color: #1c2a4a;
+            padding: 30px 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 300px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #7BBBFE;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 6px;
+            background-color: #2a3553;
+            color: #FAFDFF;
+            font-size: 14px;
+        }
+
+        input[type="submit"] {
+            background-color: #7BBBFE;
+            border: none;
+            color: #0e1836;
+            padding: 12px;
+            margin-top: 10px;
+            font-weight: bold;
+            border-radius: 6px;
+            width: 100%;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #B6CFFF;
+        }
+
+        .login-link {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .login-link a {
+            color: #B8AAFF;
+            text-decoration: none;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 13px;
+            color: #7BBBFE;
+        }
+
+        .error {
+            color: #FF6F6F;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-    <h2>Login to Chatter</h2>
-
-    <?php if ($loginError): ?>
-        <p style="color: red;"><?php echo $loginError; ?></p>
-    <?php endif; ?>
-
-    <?php if ($logoutMessage): ?>
-        <p style="color: lightgreen;"><?php echo $logoutMessage; ?></p>
-    <?php endif; ?>
-
-    <form method="POST">
-        <input type="text" name="username" placeholder="Username or Email" required><br>
-        <input type="password" name="password" placeholder="Password" required><br>
-        <input type="submit" value="Login">
-    </form>
-
-    <p>Don't have an account? <a href="register.html">Register here</a></p>
+    <div class="register-container">
+        <h2>CH@TTER</h2>
+        <?php if (isset($error)) echo "<p class='error'>$error</p>"; ?>
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <input type="submit" value="Log In">
+        </form>
+        <div class="login-link">
+            Don't have an account? <a href="register.php">Register here</a>
+        </div>
+    </div>
+    <div class="footer">
+        Created by Alex and Taylor
+    </div>
 </body>
 </html>
