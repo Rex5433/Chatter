@@ -19,7 +19,6 @@ function getUserId($username, $conn) {
     return $user['id'];
 }
 
-// Send friend request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_username'])) {
     $friend_username = trim($_POST['add_username']);
     if ($friend_username !== $username) {
@@ -44,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_username'])) {
     exit();
 }
 
-// Accept request
 if (isset($_GET['accept'])) {
     $request_id = (int)$_GET['accept'];
     $stmt = $conn->prepare("UPDATE friends SET status = 'accepted' WHERE id = ? AND friend_id = ?");
@@ -54,7 +52,6 @@ if (isset($_GET['accept'])) {
     exit();
 }
 
-// Remove friend
 if (isset($_GET['remove'])) {
     $friend_id = (int)$_GET['remove'];
     $stmt = $conn->prepare("DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)");
@@ -64,13 +61,11 @@ if (isset($_GET['remove'])) {
     exit();
 }
 
-// Fetch accepted friends
 $stmt = $conn->prepare("SELECT u.id, u.username FROM users u JOIN friends f ON (u.id = f.user_id OR u.id = f.friend_id) WHERE f.status = 'accepted' AND (f.user_id = ? OR f.friend_id = ?) AND u.id != ?");
 $stmt->bind_param("iii", $user_id, $user_id, $user_id);
 $stmt->execute();
 $friends = $stmt->get_result();
 
-// Fetch pending friend requests
 $stmt = $conn->prepare("SELECT f.id, u.username FROM friends f JOIN users u ON f.user_id = u.id WHERE f.friend_id = ? AND f.status = 'pending'");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
