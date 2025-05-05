@@ -9,7 +9,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if (!empty($username) && !empty($password) && !empty($confirm_password)) {
         if ($password === $confirm_password) {
-            // Check if username already exists
             $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
             $stmt->bind_param("s", $username);
             $stmt->execute();
@@ -18,14 +17,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($stmt->num_rows > 0) {
                 $error = "Username is already taken.";
             } else {
-                // Hash the password and insert the new user
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
                 $stmt = $conn->prepare("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)");
-                $is_admin = 0; // Default to regular user
+                $is_admin = 0;
                 $stmt->bind_param("ssi", $username, $hashed_password, $is_admin);
+
                 if ($stmt->execute()) {
-                    header("Location: login.php"); // Redirect to login page after successful registration
+                    header("Location: login.php");
                     exit();
                 } else {
                     $error = "There was an error, please try again.";
@@ -39,6 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -46,88 +45,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <title>Chatter | Register</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Inter', sans-serif;
-            background-color: #0e1836;
-            color: #FAFDFF;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            flex-direction: column;
-        }
-
-        .register-container {
-            background-color: #1c2a4a;
-            padding: 30px 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            max-width: 300px;
-            width: 100%;
-            text-align: center;
-        }
-
-        h2 {
-            margin-bottom: 20px;
-            color: #7BBBFE;
-        }
-
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 6px;
-            background-color: #2a3553;
-            color: #FAFDFF;
-            font-size: 14px;
-        }
-
-        input[type="submit"] {
-            background-color: #7BBBFE;
-            border: none;
-            color: #0e1836;
-            padding: 12px;
-            margin-top: 10px;
-            font-weight: bold;
-            border-radius: 6px;
-            width: 100%;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        input[type="submit"]:hover {
-            background-color: #B6CFFF;
-        }
-
-        .login-link {
-            margin-top: 15px;
-            font-size: 14px;
-        }
-
-        .login-link a {
-            color: #B8AAFF;
-            text-decoration: none;
-        }
-
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-
-        .footer {
-            margin-top: 30px;
-            font-size: 13px;
-            color: #7BBBFE;
-        }
-
-        .error {
-            color: #FF6F6F;
-            font-size: 14px;
-        }
-    </style>
+    <link rel="stylesheet" href="register.css">
 </head>
 <body>
     <div class="register-container">

@@ -1,0 +1,1 @@
+This is the folder where images/videos are saved from posts.
