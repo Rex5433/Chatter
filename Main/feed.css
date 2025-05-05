@@ -187,7 +187,6 @@ html, body {
     z-index: 10;
 }
 
-/* Direct Message Preview Panel */
 .chat-preview-sidebar {
     width: 25%;
     min-width: 220px;
@@ -229,7 +228,6 @@ html, body {
     color: #FAFDFF;
 }
 
-/* Custom Scrollbar for Feed */
 .feed::-webkit-scrollbar {
     width: 10px;
 }
@@ -535,7 +533,6 @@ html, body {
 
 
 
-/* Styled file upload for post modal */
 .post-modal input[type="file"] {
     background-color: #0e1836;
     color: #B6CFFF;
