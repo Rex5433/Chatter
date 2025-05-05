@@ -19,7 +19,6 @@ function getUserId($username, $conn) {
     return $user['id'];
 }
 
-// Handle new post submission with optional media
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['post_content'])) {
     $post_content = htmlspecialchars($_POST['post_content']);
     $media_path = null;
@@ -48,7 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['post_content'])) {
     exit();
 }
 
-// Handle edit
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_post_id'], $_POST['edit_content'])) {
     $edit_id = $_POST['edit_post_id'];
     $edit_content = htmlspecialchars($_POST['edit_content']);
@@ -59,7 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_post_id'], $_POST
     exit();
 }
 
-// Handle delete
 if (isset($_GET['delete_post_id'])) {
     $post_id = $_GET['delete_post_id'];
     $stmt = $conn->prepare("DELETE FROM posts WHERE id = ? AND user_id = ?");
@@ -69,7 +66,6 @@ if (isset($_GET['delete_post_id'])) {
     exit();
 }
 
-// Fetch all posts
 $stmt = $conn->prepare("SELECT posts.id, posts.content, posts.created_at, posts.updated_at, posts.media_path, users.username FROM posts JOIN users ON posts.user_id = users.id ORDER BY posts.created_at DESC");
 $stmt->execute();
 $result = $stmt->get_result();
@@ -102,13 +98,11 @@ $result = $stmt->get_result();
 </div>
 
 <script>
-    // Toggle dropdown on gear click
     document.getElementById("gearToggle").addEventListener("click", function () {
         const dropdown = document.getElementById("userDropdown");
         dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
     });
 
-    // Hide dropdown when clicking outside
     document.addEventListener("click", function (event) {
         const toggle = document.getElementById("gearToggle");
         const dropdown = document.getElementById("userDropdown");
