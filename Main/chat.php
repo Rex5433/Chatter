@@ -19,7 +19,6 @@ function getUserId($username, $conn) {
     return $user['id'];
 }
 
-// Handle sending message
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['receiver_id'], $_POST['message'])) {
     $receiver_id = (int)$_POST['receiver_id'];
     $message = htmlspecialchars_decode($_POST['message']);
@@ -42,13 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['receiver_id'], $_POST
     exit();
 }
 
-// Get friends
 $stmt = $conn->prepare("SELECT u.id, u.username FROM users u JOIN friends f ON (u.id = f.user_id OR u.id = f.friend_id) WHERE f.status = 'accepted' AND (f.user_id = ? OR f.friend_id = ?) AND u.id != ?");
 $stmt->bind_param("iii", $user_id, $user_id, $user_id);
 $stmt->execute();
 $friends = $stmt->get_result();
 
-// Get messages
 $selected_friend_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
 $messages = [];
 if ($selected_friend_id) {
