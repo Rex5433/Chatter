@@ -19,6 +19,7 @@ function getUserId($username, $conn) {
     return $user['id'];
 }
 
+// Handle new post submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['post_content'])) {
     $post_content = htmlspecialchars($_POST['post_content']);
     $media_path = null;
@@ -47,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['post_content'])) {
     exit();
 }
 
+// Handle post edits
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_post_id'], $_POST['edit_content'])) {
     $edit_id = $_POST['edit_post_id'];
     $edit_content = htmlspecialchars($_POST['edit_content']);
@@ -57,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_post_id'], $_POST
     exit();
 }
 
+// Handle post deletion
 if (isset($_GET['delete_post_id'])) {
     $post_id = $_GET['delete_post_id'];
     $stmt = $conn->prepare("DELETE FROM posts WHERE id = ? AND user_id = ?");
@@ -66,6 +69,19 @@ if (isset($_GET['delete_post_id'])) {
     exit();
 }
 
+// Handle comment submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['comment_content'], $_POST['comment_post_id'])) {
+    $comment_content = htmlspecialchars($_POST['comment_content']);
+    $comment_post_id = (int)$_POST['comment_post_id'];
+
+    $stmt = $conn->prepare("INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)");
+    $stmt->bind_param("iis", $comment_post_id, $user_id, $comment_content);
+    $stmt->execute();
+    header("Location: feed.php");
+    exit();
+}
+
+// Fetch posts
 $stmt = $conn->prepare("SELECT posts.id, posts.content, posts.created_at, posts.updated_at, posts.media_path, users.username FROM posts JOIN users ON posts.user_id = users.id ORDER BY posts.created_at DESC");
 $stmt->execute();
 $result = $stmt->get_result();
@@ -81,6 +97,7 @@ $result = $stmt->get_result();
 </head>
 <body>
 
+<!-- NAVBAR -->
 <div class="navbar">
     <div class="logo">Ch@tter</div>
     <div class="nav-links">
@@ -97,6 +114,7 @@ $result = $stmt->get_result();
     </div>
 </div>
 
+<!-- SIDEBAR TOGGLE -->
 <script>
     document.getElementById("gearToggle").addEventListener("click", function () {
         const dropdown = document.getElementById("userDropdown");
@@ -112,6 +130,7 @@ $result = $stmt->get_result();
     });
 </script>
 
+<!-- MAIN FEED + SIDEBAR -->
 <div class="main-container">
     <div class="feed">
         <button class="top-post-btn" id="floatingPostBtn">Create Post</button>
@@ -160,6 +179,34 @@ $result = $stmt->get_result();
                     echo '</div>';
                 }
 
+                // Comments
+                $comment_stmt = $conn->prepare("SELECT comments.content, comments.created_at, users.username 
+                                                FROM comments 
+                                                JOIN users ON comments.user_id = users.id 
+                                                WHERE comments.post_id = ? 
+                                                ORDER BY comments.created_at ASC");
+                $comment_stmt->bind_param("i", $post['id']);
+                $comment_stmt->execute();
+                $comment_result = $comment_stmt->get_result();
+
+                echo '<div class="comments"><h4>Comments</h4>';
+                while ($comment = $comment_result->fetch_assoc()) {
+                    $comment_date = new DateTime($comment['created_at']);
+                    echo '<div class="comment">';
+                    echo '<strong>@' . htmlspecialchars($comment['username']) . '</strong>: ';
+                    echo nl2br(htmlspecialchars($comment['content']));
+                    echo '<div class="comment-date">' . $comment_date->format('M j, g:i A') . '</div>';
+                    echo '</div>';
+                }
+                echo '</div>';
+
+                // Comment form
+                echo '<form method="POST" class="comment-form">';
+                echo '<input type="hidden" name="comment_post_id" value="' . $post['id'] . '">';
+                echo '<input type="text" name="comment_content" placeholder="Add a comment..." required>';
+                echo '<button type="submit">Comment</button>';
+                echo '</form>';
+
                 echo '</div>';
             }
         } else {
@@ -196,7 +243,6 @@ $result = $stmt->get_result();
         while ($row = $chat_result->fetch_assoc()) {
             $other_user_id = $row['other_user_id'];
 
-            // Fetch username of the other user
             $username_stmt = $conn->prepare("SELECT username FROM users WHERE id = ?");
             $username_stmt->bind_param("i", $other_user_id);
             $username_stmt->execute();
@@ -218,6 +264,7 @@ $result = $stmt->get_result();
     </div>
 </div>
 
+<!-- POST MODAL -->
 <div class="overlay" id="overlay"></div>
 <div class="post-modal" id="postModal">
     <form id="postForm" enctype="multipart/form-data" method="POST">
@@ -237,7 +284,7 @@ $result = $stmt->get_result();
         $('#postModal').fadeOut();
         $('#overlay').fadeOut();
     });
-    
+
     $(document).on('click', '.options-button', function (e) {
         e.stopPropagation();
         $('.options-dropdown').not($(this).next()).hide();
