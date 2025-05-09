@@ -19,7 +19,25 @@ function getUserId($username, $conn) {
     return $user['id'];
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['receiver_id'], $_POST['message'])) {
+// Handle message delete
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_message_id'])) {
+    $msg_id = (int)$_POST['delete_message_id'];
+    $stmt = $conn->prepare("DELETE FROM messages WHERE id = ? AND sender_id = ?");
+    $stmt->bind_param("ii", $msg_id, $user_id);
+    $stmt->execute();
+}
+
+// Handle message update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_message_id'], $_POST['new_message_content'])) {
+    $msg_id = (int)$_POST['edit_message_id'];
+    $new_content = htmlspecialchars($_POST['new_message_content']);
+    $stmt = $conn->prepare("UPDATE messages SET content = ? WHERE id = ? AND sender_id = ?");
+    $stmt->bind_param("sii", $new_content, $msg_id, $user_id);
+    $stmt->execute();
+}
+
+// Handle sending new message
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['receiver_id'], $_POST['message']) && !isset($_POST['edit_message_id'])) {
     $receiver_id = (int)$_POST['receiver_id'];
     $message = htmlspecialchars_decode($_POST['message']);
     $file_path = null;
@@ -41,11 +59,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['receiver_id'], $_POST
     exit();
 }
 
+// Load friends
 $stmt = $conn->prepare("SELECT u.id, u.username FROM users u JOIN friends f ON (u.id = f.user_id OR u.id = f.friend_id) WHERE f.status = 'accepted' AND (f.user_id = ? OR f.friend_id = ?) AND u.id != ?");
 $stmt->bind_param("iii", $user_id, $user_id, $user_id);
 $stmt->execute();
 $friends = $stmt->get_result();
 
+// Load messages
 $selected_friend_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
 $messages = [];
 if ($selected_friend_id) {
@@ -61,8 +81,8 @@ if ($selected_friend_id) {
 <head>
     <meta charset="UTF-8">
     <title>Ch@tter Chats</title>
-    <link rel="stylesheet" href="feed.css">
     <link rel="stylesheet" href="chat.css">
+    <link rel="stylesheet" href="feed.css">
 </head>
 <body>
 <div class="navbar">
@@ -95,20 +115,32 @@ if ($selected_friend_id) {
         <?php if ($selected_friend_id): ?>
             <div class="chat-messages" id="chatMessages">
                 <?php while ($msg = $messages->fetch_assoc()): ?>
-                    <div class="message <?php echo $msg['sender_id'] === $user_id ? 'sent' : 'received'; ?>">
+                    <div class="message <?php echo $msg['sender_id'] === $user_id ? 'sent' : 'received'; ?>" id="message-<?php echo $msg['id']; ?>">
                         <h4>@<?php echo htmlspecialchars($msg['username']); ?></h4>
-                        <p><?php echo nl2br(htmlspecialchars_decode($msg['content'])); ?></p>
+                        <p class="message-content"><?php echo nl2br(htmlspecialchars_decode($msg['content'])); ?></p>
                         <?php if ($msg['file_path']): ?>
                             <?php 
                                 $ext = pathinfo($msg['file_path'], PATHINFO_EXTENSION);
                                 if (in_array(strtolower($ext), ['jpg', 'jpeg', 'png', 'gif'])) {
-                                    echo '<img src="' . htmlspecialchars($msg['file_path']) . '" alt="Image" class="chat-media">';
+                                    echo '<img src="' . htmlspecialchars($msg['file_path']) . '" class="chat-media">';
                                 } elseif (in_array(strtolower($ext), ['mp4', 'webm', 'ogg'])) {
                                     echo '<video controls class="chat-media"><source src="' . htmlspecialchars($msg['file_path']) . '"></video>';
                                 }
                             ?>
                         <?php endif; ?>
                         <div class="date">Sent on <?php echo (new DateTime($msg['created_at']))->format('F j, Y \a\t g:i A'); ?></div>
+                        <?php if ($msg['sender_id'] === $user_id): ?>
+                            <div class="post-options">
+                                <button class="options-button">⋯</button>
+                                <div class="options-dropdown">
+                                    <button onclick="editMessage(<?php echo $msg['id']; ?>)">Edit</button>
+                                    <form method="POST" onsubmit="return confirm('Delete this message?')">
+                                        <input type="hidden" name="delete_message_id" value="<?php echo $msg['id']; ?>">
+                                        <button type="submit">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endwhile; ?>
             </div>
@@ -126,25 +158,54 @@ if ($selected_friend_id) {
 </div>
 
 <script>
-    window.addEventListener('load', () => {
-        const chatMessages = document.getElementById('chatMessages');
-        if (chatMessages) {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-    });
+function editMessage(msgId) {
+    const messageDiv = document.getElementById('message-' + msgId);
+    const contentP = messageDiv.querySelector('.message-content');
+    const oldText = contentP.innerText;
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+        <input type="hidden" name="edit_message_id" value="${msgId}">
+        <textarea name="new_message_content" required>${oldText}</textarea>
+        <button type="submit">Save</button>
+    `;
+    messageDiv.innerHTML = '';
+    messageDiv.appendChild(form);
+}
 
-    document.getElementById("gearToggle").addEventListener("click", function () {
-        const dropdown = document.getElementById("userDropdown");
+window.addEventListener('load', () => {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+});
+
+document.getElementById("gearToggle").addEventListener("click", function () {
+    const dropdown = document.getElementById("userDropdown");
+    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+});
+
+document.addEventListener("click", function (event) {
+    const toggle = document.getElementById("gearToggle");
+    const dropdown = document.getElementById("userDropdown");
+    if (!toggle.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.style.display = "none";
+    }
+});
+
+document.addEventListener("click", function (event) {
+    const isButton = event.target.classList.contains("options-button");
+    const dropdowns = document.querySelectorAll(".options-dropdown");
+    dropdowns.forEach(drop => drop.style.display = "none");
+
+    if (isButton) {
+        const btn = event.target;
+        const dropdown = btn.nextElementSibling;
         dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
-    });
-
-    document.addEventListener("click", function (event) {
-        const toggle = document.getElementById("gearToggle");
-        const dropdown = document.getElementById("userDropdown");
-        if (!toggle.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.style.display = "none";
-        }
-    });
+        event.stopPropagation();
+    }
+});
 </script>
 </body>
 </html>
