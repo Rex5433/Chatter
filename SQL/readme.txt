@@ -1,0 +1,1 @@
+To see a working example of the code with database entries already made, download the chatterexport.sql file to see fields for admin accounts made. Otherwise, please download tables.sql for a clean slate.
